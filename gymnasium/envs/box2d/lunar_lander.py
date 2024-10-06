@@ -36,9 +36,6 @@ if TYPE_CHECKING:
 FPS = 50
 SCALE = 30.0  # affects how fast-paced the game is, forces should be adjusted as well
 
-MAIN_ENGINE_POWER = 13.0
-SIDE_ENGINE_POWER = 0.6
-
 INITIAL_RANDOM = 1000.0  # Set 1500 to make game harder
 
 LANDER_POLY = [(-14, +17), (-17, 0), (-17, -10), (+17, -10), (+17, 0), (+14, +17)]
@@ -179,6 +176,10 @@ class LunarLander(gym.Env, EzPickle):
     `wind_power` dictates the maximum magnitude of linear wind applied to the craft. The recommended value for `wind_power` is between 0.0 and 20.0.
     `turbulence_power` dictates the maximum magnitude of rotational wind applied to the craft. The recommended value for `turbulence_power` is between 0.0 and 2.0.
 
+    * `main_engine_power` dictates the power of the main engine, this should be within 0.1 and 100.0. Default is 13.0.
+
+    * `side_engine_power` dictates the power of the side engines, this should be within 0.01 and 10.0. Default is 0.6.
+
     ## Version History
     - v2: Count energy spent and in v0.24, added turbulence with wind power and turbulence_power parameters
     - v1: Legs contact with ground added in state vector; contact with ground
@@ -233,6 +234,8 @@ class LunarLander(gym.Env, EzPickle):
         enable_wind: bool = False,
         wind_power: float = 15.0,
         turbulence_power: float = 1.5,
+        main_engine_power: float = 13.0,
+        side_engine_power: float = 0.6,
     ):
         EzPickle.__init__(
             self,
@@ -266,6 +269,18 @@ class LunarLander(gym.Env, EzPickle):
                 ),
             )
         self.turbulence_power = turbulence_power
+
+        if 0.1 > main_engine_power or main_engine_power > 100.0:
+            gym.logger.warn(
+                f"main_engine_power value is recommended to be between 0.1 and 100.0, (current value: {main_engine_power})"
+            )
+        self.main_engine_power = main_engine_power
+
+        if 0.01 > side_engine_power or side_engine_power > 10.0:
+            gym.logger.warn(
+                f"side_engine_power value is recommended to be between 0.01 and 10.0, (current value: {side_engine_power})"
+            )
+        self.side_engine_power = side_engine_power
 
         self.enable_wind = enable_wind
         self.wind_idx = np.random.randint(-9999, 9999)
@@ -569,14 +584,17 @@ class LunarLander(gym.Env, EzPickle):
                 )
                 p.ApplyLinearImpulse(
                     (
-                        ox * MAIN_ENGINE_POWER * m_power,
-                        oy * MAIN_ENGINE_POWER * m_power,
+                        ox * self.main_engine_power * m_power,
+                        oy * self.main_engine_power * m_power,
                     ),
                     impulse_pos,
                     True,
                 )
             self.lander.ApplyLinearImpulse(
-                (-ox * MAIN_ENGINE_POWER * m_power, -oy * MAIN_ENGINE_POWER * m_power),
+                (
+                    -ox * self.main_engine_power * m_power,
+                    -oy * self.main_engine_power * m_power,
+                ),
                 impulse_pos,
                 True,
             )
@@ -616,14 +634,17 @@ class LunarLander(gym.Env, EzPickle):
                 p = self._create_particle(0.7, impulse_pos[0], impulse_pos[1], s_power)
                 p.ApplyLinearImpulse(
                     (
-                        ox * SIDE_ENGINE_POWER * s_power,
-                        oy * SIDE_ENGINE_POWER * s_power,
+                        ox * self.side_engine_power * s_power,
+                        oy * self.side_engine_power * s_power,
                     ),
                     impulse_pos,
                     True,
                 )
             self.lander.ApplyLinearImpulse(
-                (-ox * SIDE_ENGINE_POWER * s_power, -oy * SIDE_ENGINE_POWER * s_power),
+                (
+                    -ox * self.side_engine_power * s_power,
+                    -oy * self.side_engine_power * s_power,
+                ),
                 impulse_pos,
                 True,
             )
@@ -869,8 +890,8 @@ def demo_heuristic_lander(env, seed=None, render=False):
                 break
 
         if steps % 20 == 0 or terminated or truncated:
-            print("observations:", " ".join([f"{x:+0.2f}" for x in s]))
-            print(f"step {steps} total_reward {total_reward:+0.2f}")
+            print("observations:", " ".join([f"{x: +0.2f}" for x in s]))
+            print(f"step {steps} total_reward {total_reward: +0.2f}")
         steps += 1
         if terminated or truncated:
             break
